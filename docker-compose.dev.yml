@@ -1,0 +1,15 @@
+# Local-dev dependencies for logistics-gateway. Brings up Redis only.
+# Auth + user services are run separately (their own docker-compose or `npm run dev`).
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: gateway-redis-dev
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 1s
+      retries: 30
+    restart: unless-stopped
