@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+.git
+.github
+tests
+docs
+*.md
+.env*
+docker-compose*.yml
+.vscode
+.idea
