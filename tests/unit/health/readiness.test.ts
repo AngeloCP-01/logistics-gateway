@@ -4,7 +4,7 @@ import { readinessHandler } from '@/health/readiness';
 
 function makeApp(redis: { ping: () => Promise<string> }) {
   const app = express();
-  app.get('/readyz', readinessHandler({ redis: redis as any, timeoutMs: 100 }));
+  app.get('/readyz', readinessHandler({ redis, timeoutMs: 100 }));
   return app;
 }
 

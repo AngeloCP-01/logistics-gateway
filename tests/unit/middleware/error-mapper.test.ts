@@ -1,10 +1,11 @@
-import express, { Express } from 'express';
+import express from 'express';
+import type { Express } from 'express';
 import request from 'supertest';
 import { errorMapper, GatewayError } from '@/middleware/error-mapper';
 
 function makeApp(thrown: unknown): Express {
   const app = express();
-  app.use((req: any, _res, next) => {
+  app.use((req, _res, next) => {
     req.requestId = 'req-id';
     next();
   });

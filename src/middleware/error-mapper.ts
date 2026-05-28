@@ -16,9 +16,11 @@ export interface ErrorMapperOptions {
 }
 
 export function errorMapper(opts: ErrorMapperOptions): ErrorRequestHandler {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // Express error middleware requires the 4-argument signature (err, req, res, next).
+  // The `_next` parameter must be present even though it is never called — omitting it
+  // would cause Express to treat this as a regular middleware, not an error handler.
   return (err, req, res, _next) => {
-    const requestId = (req as any).requestId ?? '';
+    const requestId = req.requestId ?? '';
     if (err instanceof GatewayError) {
       res
         .status(err.status)
