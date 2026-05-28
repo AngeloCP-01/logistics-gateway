@@ -126,6 +126,12 @@ export function mountProxyWithRetry(args: {
   );
 
   args.app.use(args.mountPath, async (req: Request, res: Response, next: NextFunction) => {
+    // Restore the full original URL. Express's `app.use(mountPath, ...)` strips
+    // the mount prefix from `req.url` before this handler runs, but spec §1
+    // decision #6 locks pass-through forwarding (upstream sees `/v1/<svc>/...`
+    // unchanged). Reset before the proxy reads `req.url`.
+    req.url = req.originalUrl;
+
     if (!IDEMPOTENT_METHODS.has(req.method ?? '')) {
       await proxy(req, res, next);
       return;
