@@ -1,5 +1,6 @@
 import http from 'http';
 import Redis from 'ioredis';
+import type { Logger } from 'pino';
 
 import { loadEnv } from '@/config/env';
 import type { Env } from '@/config/env';
@@ -22,6 +23,8 @@ export interface BootstrapOverrides {
   withTrackingStub?: boolean;
   /** Point AUTH_SERVICE_URL at this URL instead of starting an authStub (used to test connection-refused). */
   authServiceUrl?: string;
+  /** Inject a custom pino Logger. Useful for capturing log output in tests (e.g. redaction tests). */
+  logger?: Logger;
 }
 
 export interface Bootstrap {
@@ -59,7 +62,7 @@ export async function bootstrap(overrides: BootstrapOverrides = {}): Promise<Boo
   };
 
   const env = loadEnv(baseEnv);
-  const logger = createLogger({ level: 'silent', serviceName: 'test' });
+  const logger = overrides.logger ?? createLogger({ level: 'silent', serviceName: 'test' });
   const redis = new Redis(env.REDIS_URL);
   const rateLimitStore = new RedisRateLimitStore(redis);
 
