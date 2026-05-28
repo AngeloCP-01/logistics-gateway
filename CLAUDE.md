@@ -40,13 +40,13 @@ No business logic. No database. Pure gateway.
 - Upstream URLs come from env vars: `AUTH_SERVICE_URL`, `USER_SERVICE_URL`, etc.
 - The gateway is the only public service. Other services live on the Render private network.
 
-## Open items (decide in the Gateway spec)
+## Spec
 
-- Rate limit policy (req/sec per anonymous IP, per authenticated user, per service-JWT pair)
-- Whether to add request body size limits per route
-- Whether to add response compression
-- How to handle 503 from upstream (retry vs. fail fast)
-- Service-JWT signing strategy (per-pair secret vs. shared)
+The full design contract is [`docs/superpowers/specs/2026-05-26-gateway-design.md`](../docs/superpowers/specs/2026-05-26-gateway-design.md). All decisions previously listed as "Open items" are now locked there.
+
+## Repo deviation from platform §2.1
+
+This service has no `domain/` or `application/` layers (no business logic, no DB). Folder shape is lean: `src/{config, middleware, proxy, health, infrastructure}` + `app.ts` + `server.ts`. See spec §3.1.
 
 ## Don't do
 
