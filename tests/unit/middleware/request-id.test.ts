@@ -1,11 +1,12 @@
-import express, { Express } from 'express';
+import express from 'express';
+import type { Express } from 'express';
 import request from 'supertest';
 import { requestIdMiddleware } from '@/middleware/request-id';
 
 function makeApp(): Express {
   const app = express();
   app.use(requestIdMiddleware);
-  app.get('/echo', (req, res) => res.json({ requestId: (req as any).requestId }));
+  app.get('/echo', (req, res) => res.json({ requestId: req.requestId }));
   return app;
 }
 

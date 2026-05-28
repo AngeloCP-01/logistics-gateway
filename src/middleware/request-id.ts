@@ -1,13 +1,14 @@
-import { RequestHandler } from 'express';
+import type { RequestHandler } from 'express';
 import { v7 as uuidv7 } from 'uuid';
 
 const INBOUND_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
-declare global {
-  namespace Express {
-    interface Request {
-      requestId?: string;
-    }
+// Augment Express.Request with requestId so downstream middleware and handlers
+// can access it without casting. Using module augmentation (not a namespace
+// declaration) avoids the @typescript-eslint/no-namespace lint rule.
+declare module 'express-serve-static-core' {
+  interface Request {
+    requestId?: string;
   }
 }
 

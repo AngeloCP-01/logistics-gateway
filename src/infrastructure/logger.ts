@@ -1,5 +1,7 @@
-import pino, { Logger, LoggerOptions } from 'pino';
-import pinoHttp, { HttpLogger } from 'pino-http';
+import pino from 'pino';
+import type { Logger, LoggerOptions } from 'pino';
+import pinoHttp from 'pino-http';
+import type { HttpLogger } from 'pino-http';
 
 export function createLogger(opts: { level: string; serviceName: string }): Logger {
   const options: LoggerOptions = {
