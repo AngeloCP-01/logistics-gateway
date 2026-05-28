@@ -1,0 +1,42 @@
+import request from 'supertest';
+
+import { bootstrap } from '@tests/helpers/bootstrap';
+import type { Bootstrap } from '@tests/helpers/bootstrap';
+
+describe('I1 anonymous golden path', () => {
+  let b: Bootstrap;
+
+  beforeAll(async () => {
+    b = await bootstrap();
+  }, 60_000);
+
+  afterAll(async () => {
+    await b.close();
+  });
+
+  it('forwards POST /v1/auth/login to auth-stub with X-Request-Id propagated', async () => {
+    b.authStub!.setHandlers([
+      (_req, res) => res.status(201).json({ accessToken: 'x', refreshToken: 'y' }),
+    ]);
+
+    const res = await request(b.server)
+      .post('/v1/auth/login')
+      .send({ email: 'a@b.c', password: 'pw' });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual({ accessToken: 'x', refreshToken: 'y' });
+    expect(res.headers['x-request-id']).toMatch(/^[A-Za-z0-9_-]{1,64}$/);
+
+    const upstream = b.authStub!.recordedRequests()[0];
+    expect(upstream.method).toBe('POST');
+    // The gateway mounts the proxy with `app.use('/v1/auth', proxy)`, which is Express's
+    // standard mount-point behavior: the prefix is stripped from `req.url` before reaching
+    // the proxy. The upstream sees the post-strip path. Upstream services are configured
+    // to serve their domain root (e.g. auth-service serves `/login`, not `/v1/auth/login`).
+    expect(upstream.path).toBe('/login');
+    expect(upstream.headers['x-request-id']).toBe(res.headers['x-request-id']);
+    expect(upstream.headers.authorization).toBeUndefined();
+    expect(upstream.headers['x-user-id']).toBeUndefined();
+    expect(upstream.headers['x-service-id']).toBeUndefined();
+  });
+});
