@@ -30,3 +30,33 @@ Central HTTP entry point for the AI Logistics Platform. JWT validation, routing,
 - **Trust boundary**: defense-in-depth. The gateway does *best-effort* JWT validation — it sets the request identity if a valid token is present, otherwise the request continues as anonymous and the downstream service is responsible for authorizing. The gateway never blocks for "auth required"; downstream services do.
 
 See [`docs/superpowers/specs/2026-05-26-gateway-design.md`](../docs/superpowers/specs/2026-05-26-gateway-design.md) for the full design, including the trust model, service-JWT shape, rate-limit policy, and integration-test strategy.
+
+## Local development
+
+```bash
+# 1. Bring up Redis (compose defines only Redis; auth and user are run separately)
+docker compose -f docker-compose.dev.yml up -d
+
+# 2. Configure env
+cp .env.example .env
+# Edit .env: set JWT_SECRET to match auth-service's AUTH_JWT_SECRET; set SERVICE_JWT_SECRET (different value).
+
+# 3. Run dev server
+npm install
+npm run dev
+```
+
+Gateway listens on `${GATEWAY_PORT}` (default 8080). Hit `http://localhost:8080/healthz` to verify.
+
+## Running tests
+
+```bash
+npm test            # unit tests (fast, no containers)
+npm run test:int    # integration tests (testcontainers — needs Docker)
+```
+
+Integration tests spin up real Redis via testcontainers. Each integration test runs serially (Jest `maxWorkers: 1`).
+
+## Deploy
+
+Auto-deploys to Render on every push to `main`. See `logistics-infrastructure/deploy/render.yaml` for the service block.
