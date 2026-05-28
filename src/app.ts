@@ -5,16 +5,16 @@ import cors from 'cors';
 import compression from 'compression';
 import type { Logger } from 'pino';
 
-import type { Env } from '@/config/env';
-import { requestIdMiddleware } from '@/middleware/request-id';
-import { jwtValidatorMiddleware } from '@/middleware/jwt-validator';
-import { rateLimiterMiddleware } from '@/middleware/rate-limiter';
-import type { RateLimitStore } from '@/middleware/rate-limiter';
-import { errorMapper } from '@/middleware/error-mapper';
-import { livenessHandler } from '@/health/liveness';
-import { readinessHandler } from '@/health/readiness';
-import { mountProxyRoutes } from '@/proxy/routes';
-import { createHttpLogger } from '@/infrastructure/logger';
+import type { Env } from './config/env.js';
+import { requestIdMiddleware } from './middleware/request-id.js';
+import { jwtValidatorMiddleware } from './middleware/jwt-validator.js';
+import { rateLimiterMiddleware } from './middleware/rate-limiter.js';
+import type { RateLimitStore } from './middleware/rate-limiter.js';
+import { errorMapper } from './middleware/error-mapper.js';
+import { livenessHandler } from './health/liveness.js';
+import { readinessHandler } from './health/readiness.js';
+import { mountProxyRoutes } from './proxy/routes.js';
+import { createHttpLogger } from './infrastructure/logger.js';
 
 export interface AppDeps {
   env: Env;

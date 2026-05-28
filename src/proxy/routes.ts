@@ -1,6 +1,6 @@
 import type express from 'express';
-import { mountProxyWithRetry } from './proxy-config';
-import type { Env } from '@/config/env';
+import { mountProxyWithRetry } from './proxy-config.js';
+import type { Env } from '../config/env.js';
 
 interface RouteSpec {
   pathPrefix: string;

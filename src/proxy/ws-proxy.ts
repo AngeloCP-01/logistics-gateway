@@ -2,7 +2,7 @@ import type http from 'node:http';
 import type net from 'node:net';
 import httpProxy from 'http-proxy';
 import { v7 as uuidv7 } from 'uuid';
-import type { Env } from '@/config/env';
+import type { Env } from '../config/env.js';
 
 const WS_PATH = '/v1/tracking/socket.io/';
 const INBOUND_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;

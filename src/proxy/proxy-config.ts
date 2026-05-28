@@ -2,7 +2,7 @@ import type { Express, NextFunction, Request, Response } from 'express';
 import type { IncomingMessage, ServerResponse, OutgoingHttpHeaders } from 'http';
 import { Writable } from 'stream';
 import { createProxyMiddleware, type Options } from 'http-proxy-middleware';
-import { buildUpstreamHeaders, type Identity } from '@/middleware/identity-headers';
+import { buildUpstreamHeaders, type Identity } from '../middleware/identity-headers.js';
 
 const IDEMPOTENT_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 

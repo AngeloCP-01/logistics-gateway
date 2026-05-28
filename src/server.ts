@@ -1,11 +1,11 @@
 import http from 'node:http';
 
-import { loadEnv } from '@/config/env';
-import { createLogger } from '@/infrastructure/logger';
-import { createRedisClient } from '@/infrastructure/redis';
-import { RedisRateLimitStore } from '@/infrastructure/redis-rate-limit-store';
-import { createApp } from '@/app';
-import { attachWebSocketProxy } from '@/proxy/ws-proxy';
+import { loadEnv } from './config/env.js';
+import { createLogger } from './infrastructure/logger.js';
+import { createRedisClient } from './infrastructure/redis.js';
+import { RedisRateLimitStore } from './infrastructure/redis-rate-limit-store.js';
+import { createApp } from './app.js';
+import { attachWebSocketProxy } from './proxy/ws-proxy.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();

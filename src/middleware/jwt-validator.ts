@@ -1,5 +1,6 @@
 import type { RequestHandler, Request, Response, NextFunction } from 'express';
-import jwt, { JsonWebTokenError, TokenExpiredError } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
+const { JsonWebTokenError, TokenExpiredError } = jwt;
 
 export type Identity =
   | { kind: 'user'; sub: string; role: string }

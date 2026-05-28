@@ -1,5 +1,5 @@
-import type { RedisClient } from './redis';
-import type { RateLimitStore } from '@/middleware/rate-limiter';
+import type { RedisClient } from './redis.js';
+import type { RateLimitStore } from '../middleware/rate-limiter.js';
 
 /**
  * Sliding-window rate limiter using a Redis sorted-set.

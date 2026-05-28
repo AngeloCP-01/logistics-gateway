@@ -4,7 +4,7 @@
   "private": true,
   "description": "Public HTTPS entry point for the AI Logistics Platform — JWT validation, routing, rate limiting, WebSocket proxy.",
   "main": "dist/server.js",
-  "type": "commonjs",
+  "type": "module",
   "engines": {
     "node": ">=20.0.0"
   },
