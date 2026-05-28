@@ -16,6 +16,8 @@ export interface ProxyConfigOptions {
   target: string;
   proxyTimeoutMs: number;
   retryDelayMs: number;
+  /** Canonical upstream name used in the wrap envelope (e.g. 'user-service'). */
+  upstreamName?: string;
 }
 
 // http-proxy's `proxyTimeout` calls `proxyReq.abort()` which surfaces as
@@ -24,13 +26,53 @@ export interface ProxyConfigOptions {
 // the `proxyReq` event and mark the request as timed-out before aborting.
 const TIMED_OUT_MARKER = Symbol('upstream-timed-out');
 
+const MAX_DETAIL_LENGTH = 256;
+
+// Hop-by-hop headers (RFC 7230 §6.1) plus length/encoding headers that no longer
+// match the post-processed body. Stripped before forwarding upstream's headers
+// downstream so we can rewrite the body without lying about its size/encoding.
+const STRIPPED_RESPONSE_HEADERS = new Set([
+  'connection',
+  'keep-alive',
+  'proxy-authenticate',
+  'proxy-authorization',
+  'te',
+  'trailer',
+  'transfer-encoding',
+  'upgrade',
+  'content-length',
+  'content-encoding',
+]);
+
+function truncateDetail(body: string): string {
+  const oneLine = body.replace(/[\r\n]+/g, ' ');
+  return oneLine.length > MAX_DETAIL_LENGTH ? oneLine.slice(0, MAX_DETAIL_LENGTH) : oneLine;
+}
+
+interface PostProcessTarget {
+  statusCode: number;
+  setHeader(name: string, value: number | string | readonly string[]): unknown;
+  removeHeader?(name: string): void;
+  writeHead(status: number, headers?: OutgoingHttpHeaders): unknown;
+  write(chunk: Buffer | string): unknown;
+  end(chunk?: Buffer | string): unknown;
+  headersSent?: boolean;
+}
+
 export function createProxyConfig(opts: ProxyConfigOptions): Options {
+  const upstreamName = opts.upstreamName ?? 'upstream';
+
   return {
     target: opts.target,
     changeOrigin: true,
     // `timeout` would bound the inbound socket (tearing down the client across
     // our retry); omitted on purpose. We implement the upstream timeout below.
     proxyTimeout: opts.proxyTimeoutMs,
+
+    // We post-process upstream 5xx bodies (passthrough for application/problem+json
+    // with requestId overwritten; wrap for non-7807). `selfHandleResponse: true`
+    // disables the auto-pipe so the proxyRes handler owns writing the response.
+    selfHandleResponse: true,
 
     on: {
       proxyReq: (proxyReq, req) => {
@@ -52,6 +94,56 @@ export function createProxyConfig(opts: ProxyConfigOptions): Options {
         proxyReq.once('response', clear);
         proxyReq.once('error', clear);
         proxyReq.once('close', clear);
+      },
+
+      proxyRes: (proxyRes, req, res) => {
+        const r = req as IncomingMessage & { requestId?: string; originalUrl?: string };
+        const target = res as unknown as PostProcessTarget;
+
+        const chunks: Buffer[] = [];
+        proxyRes.on('data', (c: Buffer) => chunks.push(c));
+        proxyRes.on('end', () => {
+          const body = Buffer.concat(chunks);
+          const status = proxyRes.statusCode ?? 502;
+          const contentType = String(proxyRes.headers['content-type'] ?? '');
+          const isProblemJson = contentType.toLowerCase().startsWith('application/problem+json');
+
+          // Pass non-5xx through unchanged: copy headers + body verbatim.
+          if (status < 500) {
+            writePassthrough(target, proxyRes.headers, status, body);
+            return;
+          }
+
+          // 5xx + application/problem+json: parse, overwrite requestId, re-emit.
+          if (isProblemJson) {
+            let parsed: Record<string, unknown> | null = null;
+            try {
+              parsed = JSON.parse(body.toString('utf8')) as Record<string, unknown>;
+            } catch {
+              parsed = null;
+            }
+            if (parsed) {
+              parsed.requestId = r.requestId ?? '';
+              const newBody = Buffer.from(JSON.stringify(parsed), 'utf8');
+              writeRewritten(target, proxyRes.headers, status, newBody, 'application/problem+json');
+              return;
+            }
+            // Fall through to wrap if the body claims problem+json but won't parse.
+          }
+
+          // 5xx with non-7807 body (or unparsable 7807): wrap.
+          const envelope = {
+            type: '/problems/upstream-error',
+            title: 'Upstream service error',
+            status,
+            detail: truncateDetail(body.toString('utf8')),
+            instance: r.originalUrl ?? '',
+            requestId: r.requestId ?? '',
+            upstream: upstreamName,
+          };
+          const newBody = Buffer.from(JSON.stringify(envelope), 'utf8');
+          writeRewritten(target, proxyRes.headers, status, newBody, 'application/problem+json');
+        });
       },
 
       error: (err, req, res) => {
@@ -87,9 +179,43 @@ export function createProxyConfig(opts: ProxyConfigOptions): Options {
         );
       },
     },
-
-    selfHandleResponse: false,
   };
+}
+
+function writePassthrough(
+  target: PostProcessTarget,
+  upstreamHeaders: IncomingMessage['headers'],
+  status: number,
+  body: Buffer,
+): void {
+  for (const [k, v] of Object.entries(upstreamHeaders)) {
+    if (v === undefined) continue;
+    if (STRIPPED_RESPONSE_HEADERS.has(k.toLowerCase())) continue;
+    target.setHeader(k, v as string | string[] | number);
+  }
+  target.setHeader('Content-Length', Buffer.byteLength(body));
+  target.writeHead(status);
+  target.end(body);
+}
+
+function writeRewritten(
+  target: PostProcessTarget,
+  upstreamHeaders: IncomingMessage['headers'],
+  status: number,
+  body: Buffer,
+  contentType: string,
+): void {
+  for (const [k, v] of Object.entries(upstreamHeaders)) {
+    if (v === undefined) continue;
+    const lk = k.toLowerCase();
+    if (STRIPPED_RESPONSE_HEADERS.has(lk)) continue;
+    if (lk === 'content-type') continue;
+    target.setHeader(k, v as string | string[] | number);
+  }
+  target.setHeader('Content-Type', contentType);
+  target.setHeader('Content-Length', Buffer.byteLength(body));
+  target.writeHead(status);
+  target.end(body);
 }
 
 /**
@@ -116,12 +242,15 @@ export function mountProxyWithRetry(args: {
   target: string;
   proxyTimeoutMs: number;
   retryDelayMs: number;
+  /** Canonical name used in the upstream-error wrap envelope. */
+  upstreamName?: string;
 }): void {
   const proxy = createProxyMiddleware(
     createProxyConfig({
       target: args.target,
       proxyTimeoutMs: args.proxyTimeoutMs,
       retryDelayMs: args.retryDelayMs,
+      ...(args.upstreamName !== undefined ? { upstreamName: args.upstreamName } : {}),
     }),
   );
 
