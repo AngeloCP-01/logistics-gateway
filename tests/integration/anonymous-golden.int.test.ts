@@ -29,11 +29,7 @@ describe('I1 anonymous golden path', () => {
 
     const upstream = b.authStub!.recordedRequests()[0];
     expect(upstream.method).toBe('POST');
-    // The gateway mounts the proxy with `app.use('/v1/auth', proxy)`, which is Express's
-    // standard mount-point behavior: the prefix is stripped from `req.url` before reaching
-    // the proxy. The upstream sees the post-strip path. Upstream services are configured
-    // to serve their domain root (e.g. auth-service serves `/login`, not `/v1/auth/login`).
-    expect(upstream.path).toBe('/login');
+    expect(upstream.path).toBe('/v1/auth/login');
     expect(upstream.headers['x-request-id']).toBe(res.headers['x-request-id']);
     expect(upstream.headers.authorization).toBeUndefined();
     expect(upstream.headers['x-user-id']).toBeUndefined();

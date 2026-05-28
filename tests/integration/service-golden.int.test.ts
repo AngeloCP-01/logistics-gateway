@@ -29,8 +29,7 @@ describe('I3 service-to-service golden path', () => {
 
     const upstream = b.userStub!.recordedRequests()[0];
     expect(upstream.method).toBe('GET');
-    // Mount-point prefix is stripped by Express before the proxy forwards (see I1).
-    expect(upstream.path).toBe('/driver-1');
+    expect(upstream.path).toBe('/v1/users/driver-1');
     expect(upstream.headers['x-service-authorization']).toBe(`Bearer ${svcToken}`);
     expect(upstream.headers['x-service-id']).toBe('dispatch');
     expect(upstream.headers['x-on-behalf-of-user-id']).toBe('orig-user');

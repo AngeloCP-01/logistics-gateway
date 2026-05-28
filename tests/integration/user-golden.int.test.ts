@@ -30,8 +30,7 @@ describe('I2 authenticated user golden path', () => {
 
     const upstream = b.userStub!.recordedRequests()[0];
     expect(upstream.method).toBe('GET');
-    // Mount-point prefix is stripped by Express before the proxy forwards (see I1).
-    expect(upstream.path).toBe('/me');
+    expect(upstream.path).toBe('/v1/users/me');
     expect(upstream.headers.authorization).toBe(`Bearer ${token}`);
     expect(upstream.headers['x-user-id']).toBe('user-abc');
     expect(upstream.headers['x-user-role']).toBe('customer');
