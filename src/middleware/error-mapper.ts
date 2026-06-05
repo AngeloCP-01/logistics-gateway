@@ -34,14 +34,19 @@ export function errorMapper(opts: ErrorMapperOptions): ErrorRequestHandler {
         });
       return;
     }
-    res
-      .status(500)
-      .setHeader('Content-Type', 'application/problem+json')
-      .json({
-        type: `${opts.problemTypeBase}/internal-error`,
-        title: 'Internal Server Error',
-        status: 500,
-        requestId,
-      });
+    const body: Record<string, unknown> = {
+      type: `${opts.problemTypeBase}/internal-error`,
+      title: 'Internal Server Error',
+      status: 500,
+      requestId,
+    };
+    // In non-production, surface the cause in the RESPONSE so a 500 is debuggable
+    // without tailing logs. NEVER in production (leaks internals/stack traces).
+    if (process.env.NODE_ENV !== 'production' && err instanceof Error) {
+      body.detail = err.message;
+      body.errorName = err.name;
+      body.stack = err.stack?.split('\n').slice(1, 6).map((l) => l.trim());
+    }
+    res.status(500).setHeader('Content-Type', 'application/problem+json').json(body);
   };
 }
