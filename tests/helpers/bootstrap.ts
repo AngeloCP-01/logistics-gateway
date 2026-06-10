@@ -19,6 +19,8 @@ export interface BootstrapOverrides {
   envOverrides?: Record<string, string>;
   /** Skip starting the user-service stub (useful when a test only exercises auth). */
   skipUserStub?: boolean;
+  /** Start an order-service stub and wire ORDER_SERVICE_URL. */
+  withOrderStub?: boolean;
   /** Start a tracking-service stub and wire TRACKING_SERVICE_URL. */
   withTrackingStub?: boolean;
   /** Start a notification-service stub and wire NOTIFICATION_SERVICE_URL. */
@@ -35,6 +37,7 @@ export interface Bootstrap {
   port: number;
   authStub: StubUpstream | null;
   userStub: StubUpstream | null;
+  orderStub: StubUpstream | null;
   trackingStub: StubUpstream | null;
   notificationStub: StubUpstream | null;
   redis: Redis;
@@ -49,6 +52,7 @@ export async function bootstrap(overrides: BootstrapOverrides = {}): Promise<Boo
 
   const authStub = overrides.authServiceUrl ? null : await createStubUpstream();
   const userStub = overrides.skipUserStub ? null : await createStubUpstream();
+  const orderStub = overrides.withOrderStub ? await createStubUpstream() : null;
   const trackingStub = overrides.withTrackingStub ? await createStubUpstream() : null;
   const notificationStub = overrides.withNotificationStub ? await createStubUpstream() : null;
 
@@ -61,6 +65,7 @@ export async function bootstrap(overrides: BootstrapOverrides = {}): Promise<Boo
     AUTH_SERVICE_URL: overrides.authServiceUrl ?? authStub!.url,
     USER_SERVICE_URL: userStub?.url ?? 'http://127.0.0.1:1',
     GATEWAY_CORS_ORIGINS: 'http://localhost:3000',
+    ...(orderStub ? { ORDER_SERVICE_URL: orderStub.url } : {}),
     ...(trackingStub ? { TRACKING_SERVICE_URL: trackingStub.url } : {}),
     ...(notificationStub ? { NOTIFICATION_SERVICE_URL: notificationStub.url } : {}),
     ...(overrides.envOverrides ?? {}),
@@ -90,6 +95,7 @@ export async function bootstrap(overrides: BootstrapOverrides = {}): Promise<Boo
     port,
     authStub,
     userStub,
+    orderStub,
     trackingStub,
     notificationStub,
     redis,
@@ -102,6 +108,7 @@ export async function bootstrap(overrides: BootstrapOverrides = {}): Promise<Boo
       await redis.quit().catch(() => undefined);
       if (authStub) await authStub.close();
       if (userStub) await userStub.close();
+      if (orderStub) await orderStub.close();
       if (trackingStub) await trackingStub.close();
       if (notificationStub) await notificationStub.close();
       await redisInfo.stop();
