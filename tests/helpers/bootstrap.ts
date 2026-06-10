@@ -21,6 +21,8 @@ export interface BootstrapOverrides {
   skipUserStub?: boolean;
   /** Start a tracking-service stub and wire TRACKING_SERVICE_URL. */
   withTrackingStub?: boolean;
+  /** Start a notification-service stub and wire NOTIFICATION_SERVICE_URL. */
+  withNotificationStub?: boolean;
   /** Point AUTH_SERVICE_URL at this URL instead of starting an authStub (used to test connection-refused). */
   authServiceUrl?: string;
   /** Inject a custom pino Logger. Useful for capturing log output in tests (e.g. redaction tests). */
@@ -34,6 +36,7 @@ export interface Bootstrap {
   authStub: StubUpstream | null;
   userStub: StubUpstream | null;
   trackingStub: StubUpstream | null;
+  notificationStub: StubUpstream | null;
   redis: Redis;
   redisInfo: Awaited<ReturnType<typeof startRedis>>;
   /** Forces `/readyz` and the drain gate to act as if SIGTERM has fired. */
@@ -47,6 +50,7 @@ export async function bootstrap(overrides: BootstrapOverrides = {}): Promise<Boo
   const authStub = overrides.authServiceUrl ? null : await createStubUpstream();
   const userStub = overrides.skipUserStub ? null : await createStubUpstream();
   const trackingStub = overrides.withTrackingStub ? await createStubUpstream() : null;
+  const notificationStub = overrides.withNotificationStub ? await createStubUpstream() : null;
 
   const baseEnv: Record<string, string> = {
     NODE_ENV: 'test',
@@ -58,6 +62,7 @@ export async function bootstrap(overrides: BootstrapOverrides = {}): Promise<Boo
     USER_SERVICE_URL: userStub?.url ?? 'http://127.0.0.1:1',
     GATEWAY_CORS_ORIGINS: 'http://localhost:3000',
     ...(trackingStub ? { TRACKING_SERVICE_URL: trackingStub.url } : {}),
+    ...(notificationStub ? { NOTIFICATION_SERVICE_URL: notificationStub.url } : {}),
     ...(overrides.envOverrides ?? {}),
   };
 
@@ -86,6 +91,7 @@ export async function bootstrap(overrides: BootstrapOverrides = {}): Promise<Boo
     authStub,
     userStub,
     trackingStub,
+    notificationStub,
     redis,
     redisInfo,
     setShuttingDown: (v) => {
@@ -97,6 +103,7 @@ export async function bootstrap(overrides: BootstrapOverrides = {}): Promise<Boo
       if (authStub) await authStub.close();
       if (userStub) await userStub.close();
       if (trackingStub) await trackingStub.close();
+      if (notificationStub) await notificationStub.close();
       await redisInfo.stop();
     },
   };
