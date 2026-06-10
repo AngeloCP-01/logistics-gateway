@@ -27,18 +27,45 @@ describe('error-mapper', () => {
     });
   });
 
-  it('maps an unknown error to 500 internal-error WITHOUT leaking stack', async () => {
-    const err = new Error('database password: hunter2');
-    err.stack = 'Error: database password: hunter2\n  at /secret/path/file.ts:42';
-    const res = await request(makeApp(err)).get('/boom');
-    expect(res.status).toBe(500);
-    expect(res.body).toEqual({
-      type: '/problems/internal-error',
-      title: 'Internal Server Error',
-      status: 500,
-      requestId: 'req-id',
-    });
-    expect(JSON.stringify(res.body)).not.toContain('hunter2');
-    expect(JSON.stringify(res.body)).not.toContain('/secret/');
+  it('maps an unknown error to a generic 500 in production WITHOUT leaking the cause', async () => {
+    const prev = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      const err = new Error('database password: hunter2');
+      err.stack = 'Error: database password: hunter2\n  at /secret/path/file.ts:42';
+      const res = await request(makeApp(err)).get('/boom');
+      expect(res.status).toBe(500);
+      expect(res.body).toEqual({
+        type: '/problems/internal-error',
+        title: 'Internal Server Error',
+        status: 500,
+        requestId: 'req-id',
+      });
+      expect(JSON.stringify(res.body)).not.toContain('hunter2');
+      expect(JSON.stringify(res.body)).not.toContain('/secret/');
+    } finally {
+      process.env.NODE_ENV = prev;
+    }
+  });
+
+  it('surfaces the cause in the 500 body outside production (conventions §8.2)', async () => {
+    const prev = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+    try {
+      const err = new Error('boom upstream');
+      const res = await request(makeApp(err)).get('/boom');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({
+        type: '/problems/internal-error',
+        title: 'Internal Server Error',
+        status: 500,
+        requestId: 'req-id',
+        detail: 'boom upstream',
+        errorName: 'Error',
+      });
+      expect(Array.isArray(res.body.stack)).toBe(true);
+    } finally {
+      process.env.NODE_ENV = prev;
+    }
   });
 });
