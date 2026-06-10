@@ -8,11 +8,13 @@ describe('I19 WebSocket UPGRADE proxied', () => {
   let trackingHttp: http.Server;
   let wss: WebSocketServer;
   let receivedUpgradeRequestId: string | undefined;
+  let upstreamConnections = 0;
 
   beforeAll(async () => {
     trackingHttp = http.createServer();
     wss = new WebSocketServer({ server: trackingHttp, path: '/v1/tracking/socket.io/' });
     wss.on('connection', (ws, req) => {
+      upstreamConnections += 1;
       receivedUpgradeRequestId = req.headers['x-request-id'] as string;
       ws.send('hello');
       ws.on('message', (data) => ws.send(String(data) + '-echo'));
@@ -95,4 +97,32 @@ describe('I19 WebSocket UPGRADE proxied', () => {
       });
     }
   }, 20_000);
+
+  it('does not proxy an UPGRADE to a non-tracking path to the tracking upstream', async () => {
+    const before = upstreamConnections;
+    const gatewayAddr = b.server.address() as AddressInfo;
+    const ws = new WebSocket(`ws://127.0.0.1:${gatewayAddr.port}/v1/orders/socket.io/`);
+
+    // The ws-proxy only routes UPGRADEs whose path starts with
+    // /v1/tracking/socket.io/; everything else has its socket destroyed, so
+    // the client sees an error/close and the tracking upstream is never hit.
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error('expected the non-tracking UPGRADE to be rejected within 5s')),
+        5000,
+      );
+      const done = (): void => {
+        clearTimeout(timer);
+        resolve();
+      };
+      ws.on('error', done);
+      ws.on('close', done);
+      ws.on('open', () => {
+        clearTimeout(timer);
+        reject(new Error('non-tracking UPGRADE unexpectedly opened'));
+      });
+    });
+
+    expect(upstreamConnections).toBe(before);
+  }, 10_000);
 });
