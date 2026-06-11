@@ -21,6 +21,8 @@ export interface BootstrapOverrides {
   skipUserStub?: boolean;
   /** Start an order-service stub and wire ORDER_SERVICE_URL. */
   withOrderStub?: boolean;
+  /** Start a dispatch-service stub and wire DISPATCH_SERVICE_URL. */
+  withDispatchStub?: boolean;
   /** Start a tracking-service stub and wire TRACKING_SERVICE_URL. */
   withTrackingStub?: boolean;
   /** Start a notification-service stub and wire NOTIFICATION_SERVICE_URL. */
@@ -38,6 +40,7 @@ export interface Bootstrap {
   authStub: StubUpstream | null;
   userStub: StubUpstream | null;
   orderStub: StubUpstream | null;
+  dispatchStub: StubUpstream | null;
   trackingStub: StubUpstream | null;
   notificationStub: StubUpstream | null;
   redis: Redis;
@@ -53,6 +56,7 @@ export async function bootstrap(overrides: BootstrapOverrides = {}): Promise<Boo
   const authStub = overrides.authServiceUrl ? null : await createStubUpstream();
   const userStub = overrides.skipUserStub ? null : await createStubUpstream();
   const orderStub = overrides.withOrderStub ? await createStubUpstream() : null;
+  const dispatchStub = overrides.withDispatchStub ? await createStubUpstream() : null;
   const trackingStub = overrides.withTrackingStub ? await createStubUpstream() : null;
   const notificationStub = overrides.withNotificationStub ? await createStubUpstream() : null;
 
@@ -66,6 +70,7 @@ export async function bootstrap(overrides: BootstrapOverrides = {}): Promise<Boo
     USER_SERVICE_URL: userStub?.url ?? 'http://127.0.0.1:1',
     GATEWAY_CORS_ORIGINS: 'http://localhost:3000',
     ...(orderStub ? { ORDER_SERVICE_URL: orderStub.url } : {}),
+    ...(dispatchStub ? { DISPATCH_SERVICE_URL: dispatchStub.url } : {}),
     ...(trackingStub ? { TRACKING_SERVICE_URL: trackingStub.url } : {}),
     ...(notificationStub ? { NOTIFICATION_SERVICE_URL: notificationStub.url } : {}),
     ...(overrides.envOverrides ?? {}),
@@ -96,6 +101,7 @@ export async function bootstrap(overrides: BootstrapOverrides = {}): Promise<Boo
     authStub,
     userStub,
     orderStub,
+    dispatchStub,
     trackingStub,
     notificationStub,
     redis,
@@ -109,6 +115,7 @@ export async function bootstrap(overrides: BootstrapOverrides = {}): Promise<Boo
       if (authStub) await authStub.close();
       if (userStub) await userStub.close();
       if (orderStub) await orderStub.close();
+      if (dispatchStub) await dispatchStub.close();
       if (trackingStub) await trackingStub.close();
       if (notificationStub) await notificationStub.close();
       await redisInfo.stop();
